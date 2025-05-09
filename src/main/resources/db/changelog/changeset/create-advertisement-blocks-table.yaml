@@ -1,0 +1,25 @@
+databaseChangeLog:
+- changeSet:
+    id: create-advertisement-blocks-table
+    author: tg
+    changes:
+    - createTable:
+        tableName: advertisement_blocks
+        columns:
+        - column:
+            name: id
+            type: bigserial
+            constraints:
+              primaryKey: true
+        - column:
+            name: advertisement_id
+            type: bigint
+            constraints:
+              nullable: false
+              foreignKeyName: fk_block_advertisement
+              references: advertisements(id)
+        - column:
+            name: date_until
+            type: date
+            constraints:
+              nullable: false

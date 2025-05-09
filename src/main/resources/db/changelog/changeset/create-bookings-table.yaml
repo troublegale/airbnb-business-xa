@@ -1,0 +1,42 @@
+databaseChangeLog:
+- changeSet:
+    id: create-bookings-table
+    author: tg
+    changes:
+    - createTable:
+        tableName: bookings
+        columns:
+        - column:
+            name: id
+            type: bigserial
+            constraints:
+              primaryKey: true
+        - column:
+            name: advertisement_id
+            type: bigint
+            constraints:
+              nullable: false
+              foreignKeyName: fk_booking_advertisement
+              references: advertisements(id)
+        - column:
+            name: guest_id
+            type: bigint
+            constraints:
+              nullable: false
+              foreignKeyName: fk_booking_guest
+              references: users(id)
+        - column:
+            name: start_date
+            type: date
+            constraints:
+              nullable: false
+        - column:
+            name: end_date
+            type: date
+            constraints:
+              nullable: false
+        - column:
+            name: status
+            type: text
+            constraints:
+              nullable: false

@@ -1,0 +1,49 @@
+databaseChangeLog:
+- changeSet:
+    id: create-host-damage-complaints-table
+    author: tg
+    changes:
+    - createTable:
+        tableName: host_damage_complaints
+        columns:
+        - column:
+            name: id
+            type: bigserial
+            constraints:
+              primaryKey: true
+        - column:
+            name: host_id
+            type: bigint
+            constraints:
+              nullable: false
+              foreignKeyName: fk_host_complaint_host
+              references: users(id)
+        - column:
+            name: booking_id
+            type: bigint
+            constraints:
+              nullable: false
+              foreignKeyName: fk_host_complaint_booking
+              references: bookings(id)
+        - column:
+            name: proof_link
+            type: text
+            constraints:
+              nullable: false
+        - column:
+            name: compensation_amount
+            type: double
+            constraints:
+              nullable: false
+              checkConstraint: CHECK (compensation_amount > 0)
+        - column:
+            name: status
+            type: text
+            constraints:
+              nullable: false
+        - column:
+            name: resolver_id
+            type: bigint
+            constraints:
+              foreignKeyName: fk_host_complaint_admin
+              references: users(id)

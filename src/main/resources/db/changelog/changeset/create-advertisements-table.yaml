@@ -1,0 +1,48 @@
+databaseChangeLog:
+- changeSet:
+    id: create-advertisements-table
+    author: tg
+    changes:
+    - createTable:
+        tableName: advertisements
+        columns:
+        - column:
+            name: id
+            type: bigserial
+            constraints:
+              primaryKey: true
+        - column:
+            name: address
+            type: text
+            constraints:
+              nullable: false
+        - column:
+            name: rooms
+            type: int
+            constraints:
+              nullable: false
+              checkConstraint: CHECK (rooms > 0)
+        - column:
+            name: book_price
+            type: int
+            constraints:
+              nullable: false
+              checkConstraint: CHECK (book_price > 0)
+        - column:
+            name: price_per_night
+            type: int
+            constraints:
+              nullable: false
+              checkConstraint: CHECK (price_per_night > 0)
+        - column:
+            name: status
+            type: text
+            constraints:
+              nullable: false
+        - column:
+            name: host_id
+            type: bigint
+            constraints:
+              nullable: false
+              foreignKeyName: fk_advertisement_host
+              references: users(id)
