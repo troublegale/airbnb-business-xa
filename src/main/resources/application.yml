@@ -1,5 +1,5 @@
 server:
-  port: ${SERVER_PORT}
+  port: 8484
 spring:
   config:
     import: optional:file:.env[.properties]
@@ -7,23 +7,20 @@ spring:
     name: airbnb-xa
   datasource:
     driver-class-name: org.postgresql.Driver
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: jdbc:postgresql://localhost:5665/postgres
+    username: postgres
+    password: postgres
   liquibase:
-    enabled: true
+    enabled: false
   jpa:
     show-sql: false
     hibernate:
       ddl-auto: none
-    open-in-view: on
+    open-in-view: off
 jwt:
-  secret: ${JWT_SECRET}
-  lifetime: ${JWT_LIFETIME}
+  secret: 87a9c0cec245892d8359c17b6cdfe674823bc66ede0900b1ee33de2c1e2f26b349647497c3a5858f454b63210b2e2cb3f924236537da067d8ba5d2f00240c59d
+  lifetime: 1209600000
 credentials:
   admin:
-    username: ${ADMIN_USERNAME}
-    password: ${ADMIN_PASSWORD}
-logging:
-  level:
-    root: info
+    username: admin
+    password: administrator

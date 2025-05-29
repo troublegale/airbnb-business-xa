@@ -1,4 +1,4 @@
-package itmo.tg.airbnb_xa.business.model;
+package itmo.tg.airbnb_xa.business.model.main;
 
 import itmo.tg.airbnb_xa.business.model.enums.AdvertisementStatus;
 import itmo.tg.airbnb_xa.security.model.User;

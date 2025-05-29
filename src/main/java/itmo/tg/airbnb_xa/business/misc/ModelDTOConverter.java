@@ -1,7 +1,8 @@
 package itmo.tg.airbnb_xa.business.misc;
 
 import itmo.tg.airbnb_xa.business.dto.*;
-import itmo.tg.airbnb_xa.business.model.*;
+import itmo.tg.airbnb_xa.business.model.fine.Fine;
+import itmo.tg.airbnb_xa.business.model.main.*;
 import itmo.tg.airbnb_xa.security.model.User;
 
 import java.util.List;

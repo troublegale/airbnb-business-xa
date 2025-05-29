@@ -1,7 +1,7 @@
-package itmo.tg.airbnb_xa.business.repository;
+package itmo.tg.airbnb_xa.business.repository.main;
 
-import itmo.tg.airbnb_xa.business.model.Advertisement;
-import itmo.tg.airbnb_xa.business.model.AdvertisementBlock;
+import itmo.tg.airbnb_xa.business.model.main.Advertisement;
+import itmo.tg.airbnb_xa.business.model.main.AdvertisementBlock;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

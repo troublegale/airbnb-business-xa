@@ -1,8 +1,8 @@
-package itmo.tg.airbnb_xa.business.repository;
+package itmo.tg.airbnb_xa.business.repository.main;
 
-import itmo.tg.airbnb_xa.business.model.Advertisement;
-import itmo.tg.airbnb_xa.business.model.Booking;
-import itmo.tg.airbnb_xa.business.model.GuestComplaint;
+import itmo.tg.airbnb_xa.business.model.main.Advertisement;
+import itmo.tg.airbnb_xa.business.model.main.Booking;
+import itmo.tg.airbnb_xa.business.model.main.GuestComplaint;
 import itmo.tg.airbnb_xa.business.model.enums.TicketStatus;
 import itmo.tg.airbnb_xa.security.model.User;
 import org.springframework.data.domain.Page;

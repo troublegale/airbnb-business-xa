@@ -1,4 +1,4 @@
-package itmo.tg.airbnb_xa.business.model;
+package itmo.tg.airbnb_xa.business.model.main;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

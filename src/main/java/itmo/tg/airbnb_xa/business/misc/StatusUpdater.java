@@ -2,9 +2,9 @@ package itmo.tg.airbnb_xa.business.misc;
 
 import itmo.tg.airbnb_xa.business.model.enums.AdvertisementStatus;
 import itmo.tg.airbnb_xa.business.model.enums.BookingStatus;
-import itmo.tg.airbnb_xa.business.repository.AdvertisementBlockRepository;
-import itmo.tg.airbnb_xa.business.repository.AdvertisementRepository;
-import itmo.tg.airbnb_xa.business.repository.BookingRepository;
+import itmo.tg.airbnb_xa.business.repository.main.AdvertisementBlockRepository;
+import itmo.tg.airbnb_xa.business.repository.main.AdvertisementRepository;
+import itmo.tg.airbnb_xa.business.repository.main.BookingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
