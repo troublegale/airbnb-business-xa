@@ -1,6 +1,6 @@
-package itmo.tg.airbnb_xa.business.repository.fine;
+package itmo.tg.airbnb_xa.business.repository.fines;
 
-import itmo.tg.airbnb_xa.business.model.fine.Fine;
+import itmo.tg.airbnb_xa.business.model.fines.Fine;
 import itmo.tg.airbnb_xa.business.model.enums.FineReason;
 import itmo.tg.airbnb_xa.business.model.enums.FineStatus;
 import itmo.tg.airbnb_xa.security.model.User;

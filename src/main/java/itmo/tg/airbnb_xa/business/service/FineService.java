@@ -2,9 +2,9 @@ package itmo.tg.airbnb_xa.business.service;
 
 import itmo.tg.airbnb_xa.business.dto.FineDTO;
 import itmo.tg.airbnb_xa.business.misc.ModelDTOConverter;
-import itmo.tg.airbnb_xa.business.model.fine.Fine;
+import itmo.tg.airbnb_xa.business.model.fines.Fine;
 import itmo.tg.airbnb_xa.business.model.enums.FineStatus;
-import itmo.tg.airbnb_xa.business.repository.fine.FineRepository;
+import itmo.tg.airbnb_xa.business.repository.fines.FineRepository;
 import itmo.tg.airbnb_xa.security.model.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;

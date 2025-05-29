@@ -1,4 +1,4 @@
-package itmo.tg.airbnb_xa.business.model.fine;
+package itmo.tg.airbnb_xa.business.model.fines;
 
 import itmo.tg.airbnb_xa.business.model.enums.FineReason;
 import itmo.tg.airbnb_xa.business.model.enums.FineStatus;

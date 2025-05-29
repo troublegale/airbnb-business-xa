@@ -2,13 +2,13 @@ package itmo.tg.airbnb_xa.business.service;
 
 import itmo.tg.airbnb_xa.business.model.main.Advertisement;
 import itmo.tg.airbnb_xa.business.model.main.AdvertisementBlock;
-import itmo.tg.airbnb_xa.business.model.fine.Fine;
+import itmo.tg.airbnb_xa.business.model.fines.Fine;
 import itmo.tg.airbnb_xa.business.model.enums.AdvertisementStatus;
 import itmo.tg.airbnb_xa.business.model.enums.FineReason;
 import itmo.tg.airbnb_xa.business.model.enums.FineStatus;
 import itmo.tg.airbnb_xa.business.repository.main.AdvertisementBlockRepository;
 import itmo.tg.airbnb_xa.business.repository.main.AdvertisementRepository;
-import itmo.tg.airbnb_xa.business.repository.fine.FineRepository;
+import itmo.tg.airbnb_xa.business.repository.fines.FineRepository;
 import itmo.tg.airbnb_xa.security.model.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

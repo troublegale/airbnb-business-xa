@@ -1,22 +1,13 @@
 server:
   port: 8484
 spring:
-  config:
-    import: optional:file:.env[.properties]
   application:
     name: airbnb-xa
-  datasource:
-    driver-class-name: org.postgresql.Driver
-    url: jdbc:postgresql://localhost:5665/postgres
-    username: postgres
-    password: postgres
-  liquibase:
-    enabled: false
   jpa:
-    show-sql: false
+    show-sql: true
     hibernate:
-      ddl-auto: none
-    open-in-view: off
+      ddl-auto: update
+    open-in-view: false
 jwt:
   secret: 87a9c0cec245892d8359c17b6cdfe674823bc66ede0900b1ee33de2c1e2f26b349647497c3a5858f454b63210b2e2cb3f924236537da067d8ba5d2f00240c59d
   lifetime: 1209600000
