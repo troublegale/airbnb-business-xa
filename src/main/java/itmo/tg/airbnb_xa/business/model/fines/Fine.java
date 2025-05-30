@@ -2,7 +2,6 @@ package itmo.tg.airbnb_xa.business.model.fines;
 
 import itmo.tg.airbnb_xa.business.model.enums.FineReason;
 import itmo.tg.airbnb_xa.business.model.enums.FineStatus;
-import itmo.tg.airbnb_xa.security.model.User;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -21,9 +20,12 @@ public class Fine {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-    @JoinColumn(name = "user_id", nullable = false)
-    @ManyToOne
-    private User user;
+    @Column(name = "username", nullable = false)
+    private String username;
+
+//    @JoinColumn(name = "user_id", nullable = false)
+//    @ManyToOne
+//    private User user;
 
     @Column(name = "amount", nullable = false)
     private double amount;

@@ -64,7 +64,7 @@ public class ModelDTOConverter {
                 .id(fine.getId())
                 .amount(fine.getAmount())
                 .status(fine.getStatus())
-                .username(fine.getUser().getUsername())
+                .username(fine.getUsername())
                 .build();
     }
 

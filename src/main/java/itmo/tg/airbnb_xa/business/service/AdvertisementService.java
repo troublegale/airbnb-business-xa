@@ -4,6 +4,7 @@ import itmo.tg.airbnb_xa.business.dto.AdvertisementRequestDTO;
 import itmo.tg.airbnb_xa.business.dto.AdvertisementResponseDTO;
 import itmo.tg.airbnb_xa.business.dto.BookingResponseDTO;
 import itmo.tg.airbnb_xa.business.exception.exceptions.NotAllowedException;
+import itmo.tg.airbnb_xa.business.exception.exceptions.TransactionException;
 import itmo.tg.airbnb_xa.business.misc.ModelDTOConverter;
 import itmo.tg.airbnb_xa.business.model.main.Advertisement;
 import itmo.tg.airbnb_xa.business.model.main.Booking;
@@ -19,7 +20,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.jta.JtaTransactionManager;
 
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -31,6 +32,8 @@ public class AdvertisementService {
 
     private final AdvertisementRepository advertisementRepository;
     private final BookingRepository bookingRepository;
+
+    private final JtaTransactionManager jtaTransactionManager;
 
     public AdvertisementResponseDTO get(Long id) {
         var advert = advertisementRepository.findById(id).orElseThrow(() ->
@@ -81,20 +84,42 @@ public class AdvertisementService {
         return ModelDTOConverter.convert(advert);
     }
 
-    @Transactional
     public AdvertisementResponseDTO update(Long id, AdvertisementRequestDTO dto, User host) {
-        var advert = advertisementRepository.findById(id).orElseThrow(() ->
-                new NoSuchElementException("Advertisement #" + id + " not found"));
-        if (advert.getHost().equals(host) || host.getRole() == Role.ROLE_ADMIN) {
-            advert.setAddress(dto.getAddress());
-            advert.setRooms(dto.getRooms());
-            advert.setBookPrice(dto.getBookPrice());
-            advert.setPricePerNight(dto.getPricePerNight());
-            advertisementRepository.save(advert);
-            log.info("Updated advertisement #{}", advert.getId());
-            return ModelDTOConverter.convert(advert);
+        try {
+            var userTransaction = jtaTransactionManager.getUserTransaction();
+            userTransaction.begin();
+
+            var advert = advertisementRepository.findById(id).orElseThrow(() ->
+                    new NoSuchElementException("Advertisement #" + id + " not found"));
+            if (advert.getHost().equals(host) || host.getRole() == Role.ROLE_ADMIN) {
+                advert.setAddress(dto.getAddress());
+                advert.setRooms(dto.getRooms());
+                advert.setBookPrice(dto.getBookPrice());
+                advert.setPricePerNight(dto.getPricePerNight());
+                advertisementRepository.save(advert);
+
+                userTransaction.commit();
+
+                log.info("Updated advertisement #{}", advert.getId());
+                return ModelDTOConverter.convert(advert);
+            }
+            throw new NotAllowedException("Not allowed to update advertisement #" + id);
+        } catch (NoSuchElementException | NotAllowedException e) {
+            rollbackSafely();
+            throw e;
+        } catch (Exception e) {
+            rollbackSafely();
+            throw new TransactionException("Transaction failed in cancel (booking)");
         }
-        throw new NotAllowedException("Not allowed to update advertisement #" + id);
+    }
+
+    private void rollbackSafely() {
+        try {
+            var userTransaction = jtaTransactionManager.getUserTransaction();
+            userTransaction.rollback();
+        } catch (Exception rollbackEx) {
+            log.error("Rollback failed", rollbackEx);
+        }
     }
 
 }

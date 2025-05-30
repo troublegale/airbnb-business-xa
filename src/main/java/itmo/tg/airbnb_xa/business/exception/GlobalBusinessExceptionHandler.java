@@ -2,6 +2,7 @@ package itmo.tg.airbnb_xa.business.exception;
 
 import itmo.tg.airbnb_xa.business.exception.exceptions.NotAllowedException;
 import itmo.tg.airbnb_xa.business.exception.exceptions.TicketAlreadyPublishedException;
+import itmo.tg.airbnb_xa.business.exception.exceptions.TransactionException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -65,6 +66,11 @@ public class GlobalBusinessExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<String> handleHttpMessageNotReadableException(HttpMessageNotReadableException ignored) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Bad HTTP request, possibly invalid field values");
+    }
+
+    @ExceptionHandler(TransactionException.class)
+    public ResponseEntity<String> handleTransactionException(TransactionException ex) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
     }
 
 }

@@ -35,9 +35,9 @@ public class FineService {
         List<Fine> fines;
         Pageable pageable = PageRequest.of(page - 1, pageSize, Sort.by("id"));
         if (active) {
-            fines = fineRepository.findByUserAndStatus(user, FineStatus.ACTIVE, pageable).getContent();
+            fines = fineRepository.findByUsernameAndStatus(user.getUsername(), FineStatus.ACTIVE, pageable).getContent();
         } else {
-            fines = fineRepository.findByUser(user, pageable).getContent();
+            fines = fineRepository.findByUsername(user.getUsername(), pageable).getContent();
         }
         return ModelDTOConverter.toFineDTOList(fines);
     }

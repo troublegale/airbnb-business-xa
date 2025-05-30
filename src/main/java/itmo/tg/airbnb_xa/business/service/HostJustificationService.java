@@ -5,6 +5,7 @@ import itmo.tg.airbnb_xa.business.dto.HostJustificationResponseDTO;
 import itmo.tg.airbnb_xa.business.exception.exceptions.NotAllowedException;
 import itmo.tg.airbnb_xa.business.exception.exceptions.TicketAlreadyPublishedException;
 import itmo.tg.airbnb_xa.business.exception.exceptions.TicketAlreadyResolvedException;
+import itmo.tg.airbnb_xa.business.exception.exceptions.TransactionException;
 import itmo.tg.airbnb_xa.business.misc.ModelDTOConverter;
 import itmo.tg.airbnb_xa.business.model.main.GuestComplaint;
 import itmo.tg.airbnb_xa.business.model.main.HostJustification;
@@ -21,6 +22,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.jta.JtaTransactionManager;
 
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -32,7 +34,10 @@ public class HostJustificationService {
 
     private final HostJustificationRepository hostJustificationRepository;
     private final GuestComplaintRepository guestComplaintRepository;
+
     private final PenaltyService penaltyService;
+
+    private final JtaTransactionManager jtaTransactionManager;
 
     public HostJustificationResponseDTO get(Long id) {
         var ticket = hostJustificationRepository.findById(id).orElseThrow(() ->
@@ -68,21 +73,34 @@ public class HostJustificationService {
         return ModelDTOConverter.toHostJustificationDTOList(justifications);
     }
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public HostJustificationResponseDTO create(HostJustificationRequestDTO dto, User host) {
-        var complaintId = dto.getGuestComplaintId();
-        var complaint = guestComplaintRepository.findById(complaintId).orElseThrow(() ->
-                new NoSuchElementException("Complaint #" + complaintId + " not found"));
-        verifyJustification(complaint, host);
-        var justification = HostJustification.builder()
-                .host(host)
-                .complaint(complaint)
-                .proofLink(dto.getProofLink())
-                .status(TicketStatus.PENDING)
-                .build();
-        hostJustificationRepository.save(justification);
-        log.info("Created host justification #{}", justification.getId());
-        return ModelDTOConverter.convert(justification);
+        try {
+            var userTransaction = jtaTransactionManager.getUserTransaction();
+            userTransaction.begin();
+
+            var complaintId = dto.getGuestComplaintId();
+            var complaint = guestComplaintRepository.findById(complaintId).orElseThrow(() ->
+                    new NoSuchElementException("Complaint #" + complaintId + " not found"));
+            verifyJustification(complaint, host);
+            var justification = HostJustification.builder()
+                    .host(host)
+                    .complaint(complaint)
+                    .proofLink(dto.getProofLink())
+                    .status(TicketStatus.PENDING)
+                    .build();
+            hostJustificationRepository.save(justification);
+
+            userTransaction.commit();
+
+            log.info("Created host justification #{}", justification.getId());
+            return ModelDTOConverter.convert(justification);
+        } catch (NoSuchElementException | NotAllowedException | TicketAlreadyPublishedException e) {
+            rollbackSafely();
+            throw e;
+        } catch (Exception e) {
+            rollbackSafely();
+            throw new TransactionException("Transaction failed in create (host justification)");
+        }
     }
 
     private void verifyJustification(GuestComplaint complaint, User host) {
@@ -99,35 +117,72 @@ public class HostJustificationService {
         }
     }
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public HostJustificationResponseDTO approve(Long id, User resolver) {
-        var ticket = hostJustificationRepository.findById(id).orElseThrow(() ->
-                new NoSuchElementException("Damage complaint #" + id + " not found"));
-        if (ticket.getStatus() != TicketStatus.PENDING) {
-            throw new TicketAlreadyResolvedException("Damage complaint #" + id + " is already resolved");
+        try {
+            var userTransaction = jtaTransactionManager.getUserTransaction();
+            userTransaction.begin();
+            var ticket = hostJustificationRepository.findById(id).orElseThrow(() ->
+                    new NoSuchElementException("Damage complaint #" + id + " not found"));
+            if (ticket.getStatus() != TicketStatus.PENDING) {
+                throw new TicketAlreadyResolvedException("Damage complaint #" + id + " is already resolved");
+            }
+            ticket.setStatus(TicketStatus.APPROVED);
+            ticket.setResolver(resolver);
+            hostJustificationRepository.save(ticket);
+            log.info("Approved host justification #{}", ticket.getId());
+            var booking = ticket.getComplaint().getBooking();
+            var advert = booking.getAdvertisement();
+
+            penaltyService.retractPenalty(advert, booking.getEndDate(), ticket.getComplaint().getId(), FineReason.GUEST);
+
+            userTransaction.commit();
+
+            return ModelDTOConverter.convert(ticket);
+
+        } catch (NoSuchElementException | TicketAlreadyResolvedException e) {
+            rollbackSafely();
+            throw e;
+        } catch (Exception e) {
+            rollbackSafely();
+            throw new TransactionException("Transaction failed in approve (host justification)");
         }
-        ticket.setStatus(TicketStatus.APPROVED);
-        ticket.setResolver(resolver);
-        hostJustificationRepository.save(ticket);
-        log.info("Approved host justification #{}", ticket.getId());
-        var booking = ticket.getComplaint().getBooking();
-        var advert = booking.getAdvertisement();
-        penaltyService.retractPenalty(advert, booking.getEndDate(), ticket.getComplaint().getId(), FineReason.GUEST);
-        return ModelDTOConverter.convert(ticket);
     }
 
     @Transactional(isolation = Isolation.REPEATABLE_READ)
     public HostJustificationResponseDTO reject(Long id, User resolver) {
-        var ticket = hostJustificationRepository.findById(id).orElseThrow(() ->
-                new NoSuchElementException("Damage complaint #" + id + " not found"));
-        if (ticket.getStatus() != TicketStatus.PENDING) {
-            throw new TicketAlreadyResolvedException("Damage complaint #" + id + " is already resolved");
+        try {
+            var userTransaction = jtaTransactionManager.getUserTransaction();
+            userTransaction.begin();
+
+            var ticket = hostJustificationRepository.findById(id).orElseThrow(() ->
+                    new NoSuchElementException("Damage complaint #" + id + " not found"));
+            if (ticket.getStatus() != TicketStatus.PENDING) {
+                throw new TicketAlreadyResolvedException("Damage complaint #" + id + " is already resolved");
+            }
+            ticket.setStatus(TicketStatus.REJECTED);
+            ticket.setResolver(resolver);
+            hostJustificationRepository.save(ticket);
+
+            userTransaction.commit();
+
+            log.info("Rejected host justification #{}", ticket.getId());
+            return ModelDTOConverter.convert(ticket);
+        } catch (NoSuchElementException | TicketAlreadyResolvedException e) {
+            rollbackSafely();
+            throw e;
+        } catch (Exception e) {
+            rollbackSafely();
+            throw new TransactionException("Transaction failed in reject (host justification)");
         }
-        ticket.setStatus(TicketStatus.REJECTED);
-        ticket.setResolver(resolver);
-        hostJustificationRepository.save(ticket);
-        log.info("Rejected host justification #{}", ticket.getId());
-        return ModelDTOConverter.convert(ticket);
+    }
+
+    private void rollbackSafely() {
+        try {
+            var userTransaction = jtaTransactionManager.getUserTransaction();
+            userTransaction.rollback();
+        } catch (Exception rollbackEx) {
+            log.error("Rollback failed", rollbackEx);
+        }
     }
 
 }

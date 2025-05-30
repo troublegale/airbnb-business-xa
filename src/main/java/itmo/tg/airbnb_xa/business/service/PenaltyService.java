@@ -13,8 +13,6 @@ import itmo.tg.airbnb_xa.security.model.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -28,7 +26,6 @@ public class PenaltyService {
     private final AdvertisementRepository advertisementRepository;
     private final AdvertisementBlockRepository advertisementBlockRepository;
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public void blockAndAssignFine(Advertisement advertisement, Long ticketId, FineReason fineReason,
                                    LocalDate assigningDate, LocalDate startDate, LocalDate endDate, User host) {
         var block = AdvertisementBlock.builder()
@@ -44,13 +41,21 @@ public class PenaltyService {
 
         var amount = calculateFineAmount(
                 assigningDate, startDate, endDate, advertisement.getBookPrice(), advertisement.getPricePerNight());
-        assignFine(amount, host, ticketId, fineReason);
+
+        var fine = Fine.builder()
+                .username(host.getUsername())
+                .amount(amount)
+                .status(FineStatus.ACTIVE)
+                .ticketId(ticketId)
+                .fineReason(fineReason)
+                .build();
+        fineRepository.save(fine);
+
     }
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public void assignFine(Double amount, User user, Long ticketId, FineReason fineReason) {
         var fine = Fine.builder()
-                .user(user)
+                .username(user.getUsername())
                 .amount(amount)
                 .status(FineStatus.ACTIVE)
                 .ticketId(ticketId)
@@ -60,7 +65,6 @@ public class PenaltyService {
         log.info("User #{} received fine #{}", user.getId(), fine.getId());
     }
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public void retractPenalty(Advertisement advertisement, LocalDate until, Long ticketId, FineReason fineReason) {
         var blocks = advertisementBlockRepository.findByAdvertisement(advertisement);
         var exactBlock = blocks.stream().filter(b -> b.getDateUntil().equals(until)).toList();
@@ -72,7 +76,6 @@ public class PenaltyService {
             advertisementRepository.save(advertisement);
             log.info("Advertisement #{} is active", advertisement.getId());
         }
-
         var fine = fineRepository.findByTicketIdAndFineReason(ticketId, fineReason);
         fine.setStatus(FineStatus.CANCELLED);
         fineRepository.save(fine);

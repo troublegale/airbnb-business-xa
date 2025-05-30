@@ -18,8 +18,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.jta.JtaTransactionManager;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -35,6 +34,8 @@ public class BookingService {
     private final BookingRepository bookingRepository;
 
     private final PenaltyService penaltyService;
+
+    private final JtaTransactionManager jtaTransactionManager;
 
     public BookingResponseDTO get(Long id) {
         var booking = bookingRepository.findById(id).orElseThrow(() ->
@@ -64,77 +65,102 @@ public class BookingService {
         return ModelDTOConverter.toBookingDTOList(bookings);
     }
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public BookingResponseDTO create(BookingRequestDTO dto, User guest) {
+        try {
+            var userTransaction = jtaTransactionManager.getUserTransaction();
+            userTransaction.begin();
 
-        verifyDates(dto.getStartDate(), dto.getEndDate());
+            verifyDates(dto.getStartDate(), dto.getEndDate());
 
-        var advertId = dto.getAdvertisementId();
-        var advert = advertisementRepository.findById(advertId).orElseThrow(() ->
-                new NoSuchElementException("Advertisement #" + advertId + " not found"));
+            var advertId = dto.getAdvertisementId();
+            var advert = advertisementRepository.findById(advertId).orElseThrow(() ->
+                    new NoSuchElementException("Advertisement #" + advertId + " not found"));
 
-        if (advert.getHost().equals(guest)) {
-            throw new BookOwnAdvertisementException("You can't book your own advertisement");
+            if (advert.getHost().equals(guest)) {
+                throw new BookOwnAdvertisementException("You can't book your own advertisement");
+            }
+
+            if (advert.getStatus() == AdvertisementStatus.BLOCKED) {
+                var blocks = advertisementBlockRepository.findByAdvertisement(advert);
+                assert !blocks.isEmpty();
+                blocks.sort((b1, b2) -> {
+                    if (b1.getDateUntil().isAfter(b2.getDateUntil())) {
+                        return -1;
+                    } else if (b1.getDateUntil().isBefore(b2.getDateUntil())) {
+                        return 1;
+                    }
+                    return 0;
+                });
+                var until = blocks.get(0).getDateUntil();
+                throw new AdvertisementBlockedException("Advertisement #" + advertId + " is blocked until " + until);
+            }
+
+            var activeBookings = bookingRepository.findByAdvertisementAndStatus(advert, BookingStatus.ACTIVE);
+            activeBookings.forEach(booking ->
+                    verifyDatesConflict(booking.getStartDate(), booking.getEndDate(), dto.getStartDate(), dto.getEndDate())
+            );
+
+            var booking = ModelDTOConverter.convert(dto, advert, guest);
+            booking.setStatus(BookingStatus.ACTIVE);
+            bookingRepository.save(booking);
+
+            userTransaction.commit();
+
+            log.info("Created booking #{}", booking.getId());
+            return ModelDTOConverter.convert(booking);
+        } catch (NoSuchElementException | BookOwnAdvertisementException | AdvertisementBlockedException | BookingDatesConflictException | InvalidBookingDatesException e) {
+            rollbackSafely();
+            throw e;
         }
-
-        if (advert.getStatus() == AdvertisementStatus.BLOCKED) {
-            var blocks = advertisementBlockRepository.findByAdvertisement(advert);
-            assert !blocks.isEmpty();
-            blocks.sort((b1, b2) -> {
-                if (b1.getDateUntil().isAfter(b2.getDateUntil())) {
-                    return -1;
-                } else if (b1.getDateUntil().isBefore(b2.getDateUntil())) {
-                    return 1;
-                }
-                return 0;
-            });
-            var until = blocks.get(0).getDateUntil();
-            throw new AdvertisementBlockedException("Advertisement #" + advertId + " is blocked until " + until);
+        catch (Exception e) {
+            rollbackSafely();
+            throw new TransactionException("Transaction failed in create (booking)");
         }
-
-        var activeBookings = bookingRepository.findByAdvertisementAndStatus(advert, BookingStatus.ACTIVE);
-        activeBookings.forEach(booking ->
-                verifyDatesConflict(booking.getStartDate(), booking.getEndDate(), dto.getStartDate(), dto.getEndDate())
-        );
-
-        var booking = ModelDTOConverter.convert(dto, advert, guest);
-        booking.setStatus(BookingStatus.ACTIVE);
-        bookingRepository.save(booking);
-        log.info("Created booking #{}", booking.getId());
-        return ModelDTOConverter.convert(booking);
 
     }
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public String cancel(Long id, User user) {
+        try {
+            var userTransaction = jtaTransactionManager.getUserTransaction();
+            userTransaction.begin();
 
-        var booking = bookingRepository.findById(id).orElseThrow(() ->
-                new NoSuchElementException("Booking #" + id + " not found"));
+            var booking = bookingRepository.findById(id).orElseThrow(() ->
+                    new NoSuchElementException("Booking #" + id + " not found"));
 
-        if (!booking.getGuest().equals(user) && !booking.getAdvertisement().getHost().equals(user)) {
-            throw new NotAllowedException("Not allowed to cancel booking #" + id);
-        }
+            if (!booking.getGuest().equals(user) && !booking.getAdvertisement().getHost().equals(user)) {
+                throw new NotAllowedException("Not allowed to cancel booking #" + id);
+            }
 
-        if (booking.getStatus() != BookingStatus.ACTIVE) {
-            throw new NotAllowedException("Booking #" + id + " is already cancelled or expired");
-        }
+            if (booking.getStatus() != BookingStatus.ACTIVE) {
+                throw new NotAllowedException("Booking #" + id + " is already cancelled or expired");
+            }
 
-        if (booking.getGuest().equals(user)) {
+            if (booking.getGuest().equals(user)) {
+                booking.setStatus(BookingStatus.CANCELLED);
+                bookingRepository.save(booking);
+                log.info("Booking #{} cancelled by guest", booking.getId());
+                return "You cancelled booking #" + id + " as a guest";
+            }
+
+            var advert = booking.getAdvertisement();
+            penaltyService.blockAndAssignFine(advert, -1L, FineReason.SELF,
+                    LocalDate.now(), booking.getStartDate(), booking.getEndDate(), user);
             booking.setStatus(BookingStatus.CANCELLED);
             bookingRepository.save(booking);
-            log.info("Booking #{} cancelled by guest", booking.getId());
-            return "You cancelled booking #" + id + " as a guest";
-        }
 
-        var advert = booking.getAdvertisement();
-        penaltyService.blockAndAssignFine(advert, -1L, FineReason.SELF,
-                LocalDate.now(), booking.getStartDate(), booking.getEndDate(), user);
-        booking.setStatus(BookingStatus.CANCELLED);
-        bookingRepository.save(booking);
-        log.info("Booking #{} cancelled by host", booking.getId());
-        return "You cancelled booking #" + id + " as a host.\n" +
-                "You were assigned with a fine. Refer to /fines/my\n" +
-                "Your advertisement #" + advert.getId() + " is blocked for booking until " + booking.getEndDate();
+            userTransaction.commit();
+
+            log.info("Booking #{} cancelled by host", booking.getId());
+            return "You cancelled booking #" + id + " as a host.\n" +
+                    "You were assigned with a fine. Refer to /fines/my\n" +
+                    "Your advertisement #" + advert.getId() + " is blocked for booking until " + booking.getEndDate();
+        } catch (NoSuchElementException | NotAllowedException e) {
+            rollbackSafely();
+            throw e;
+        } catch (Exception e) {
+            rollbackSafely();
+            throw new TransactionException("Transaction failed in cancel (booking)");
+        }
 
     }
 
@@ -151,6 +177,15 @@ public class BookingService {
         boolean cond2 = start1.isAfter(end2);
         if (!cond1 && !cond2) {
             throw new BookingDatesConflictException("Another booking already exists in the same period");
+        }
+    }
+
+    private void rollbackSafely() {
+        try {
+            var userTransaction = jtaTransactionManager.getUserTransaction();
+            userTransaction.rollback();
+        } catch (Exception rollbackEx) {
+            log.error("Rollback failed", rollbackEx);
         }
     }
 

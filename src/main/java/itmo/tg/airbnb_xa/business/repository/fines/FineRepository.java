@@ -12,11 +12,11 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface FineRepository extends JpaRepository<Fine, Long> {
 
-    Page<Fine> findByUser(User user, Pageable pageable);
+    Page<Fine> findByUsername(String username, Pageable pageable);
 
     Page<Fine> findByStatus(FineStatus status, Pageable pageable);
 
-    Page<Fine> findByUserAndStatus(User user, FineStatus status, Pageable pageable);
+    Page<Fine> findByUsernameAndStatus(String username, FineStatus status, Pageable pageable);
 
     Fine findByTicketIdAndFineReason(Long ticketId, FineReason reason);
 

@@ -4,6 +4,7 @@ import itmo.tg.airbnb_xa.business.dto.HostDamageComplaintRequestDTO;
 import itmo.tg.airbnb_xa.business.dto.HostDamageComplaintResponseDTO;
 import itmo.tg.airbnb_xa.business.exception.exceptions.TicketAlreadyPublishedException;
 import itmo.tg.airbnb_xa.business.exception.exceptions.TicketAlreadyResolvedException;
+import itmo.tg.airbnb_xa.business.exception.exceptions.TransactionException;
 import itmo.tg.airbnb_xa.business.misc.ModelDTOConverter;
 import itmo.tg.airbnb_xa.business.model.main.Booking;
 import itmo.tg.airbnb_xa.business.model.main.HostDamageComplaint;
@@ -20,6 +21,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.jta.JtaTransactionManager;
 
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -31,7 +33,10 @@ public class HostDamageComplaintService {
 
     private final HostDamageComplaintRepository hostDamageComplaintRepository;
     private final BookingRepository bookingRepository;
+
     private final PenaltyService penaltyService;
+
+    private final JtaTransactionManager jtaTransactionManager;
 
     public HostDamageComplaintResponseDTO get(Long id) {
         var ticket = hostDamageComplaintRepository.findById(id).orElseThrow(() ->
@@ -67,22 +72,35 @@ public class HostDamageComplaintService {
         return ModelDTOConverter.toHostDamageComplaintDTOList(complaints);
     }
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public HostDamageComplaintResponseDTO create(HostDamageComplaintRequestDTO dto, User host) {
-        var bookingId = dto.getBookingId();
-        var booking = bookingRepository.findById(bookingId).orElseThrow(() ->
-                new NoSuchElementException("Booking #" + bookingId + " not found"));
-        verifyComplaint(booking, host);
-        var complaint = HostDamageComplaint.builder()
-                .host(host)
-                .booking(booking)
-                .proofLink(dto.getProofLink())
-                .compensationAmount(dto.getCompensationAmount())
-                .status(TicketStatus.PENDING)
-                .build();
-        hostDamageComplaintRepository.save(complaint);
-        log.info("Created host damage complaint #{}", complaint.getId());
-        return ModelDTOConverter.convert(complaint);
+        try {
+            var userTransaction = jtaTransactionManager.getUserTransaction();
+            userTransaction.begin();
+
+            var bookingId = dto.getBookingId();
+            var booking = bookingRepository.findById(bookingId).orElseThrow(() ->
+                    new NoSuchElementException("Booking #" + bookingId + " not found"));
+            verifyComplaint(booking, host);
+            var complaint = HostDamageComplaint.builder()
+                    .host(host)
+                    .booking(booking)
+                    .proofLink(dto.getProofLink())
+                    .compensationAmount(dto.getCompensationAmount())
+                    .status(TicketStatus.PENDING)
+                    .build();
+            hostDamageComplaintRepository.save(complaint);
+
+            userTransaction.commit();
+
+            log.info("Created host damage complaint #{}", complaint.getId());
+            return ModelDTOConverter.convert(complaint);
+        } catch (NoSuchElementException e) {
+            rollbackSafely();
+            throw e;
+        } catch (Exception e) {
+            rollbackSafely();
+            throw new TransactionException("Transaction failed in create (host damage)");
+        }
     }
 
     private void verifyComplaint(Booking booking, User host) {
@@ -94,34 +112,70 @@ public class HostDamageComplaintService {
         }
     }
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public HostDamageComplaintResponseDTO approve(Long id, User resolver) {
         var ticket = hostDamageComplaintRepository.findById(id).orElseThrow(() ->
                 new NoSuchElementException("Damage complaint #" + id + " not found"));
         if (ticket.getStatus() != TicketStatus.PENDING) {
             throw new TicketAlreadyResolvedException("Damage complaint #" + id + " is already resolved");
         }
-        ticket.setStatus(TicketStatus.APPROVED);
-        ticket.setResolver(resolver);
-        hostDamageComplaintRepository.save(ticket);
-        log.info("Approved host damage complaint #{}", ticket.getId());
-        penaltyService.assignFine(ticket.getCompensationAmount(), ticket.getBooking().getGuest(),
-                ticket.getId(), FineReason.DAMAGE);
-        return ModelDTOConverter.convert(ticket);
+        try {
+            var userTransaction = jtaTransactionManager.getUserTransaction();
+            userTransaction.begin();
+
+            ticket.setStatus(TicketStatus.APPROVED);
+            ticket.setResolver(resolver);
+            hostDamageComplaintRepository.save(ticket);
+            log.info("Approved host damage complaint #{}", ticket.getId());
+            penaltyService.assignFine(ticket.getCompensationAmount(), ticket.getBooking().getGuest(),
+                    ticket.getId(), FineReason.DAMAGE);
+
+            userTransaction.commit();
+
+            return ModelDTOConverter.convert(ticket);
+        } catch (NoSuchElementException | TicketAlreadyResolvedException e) {
+            rollbackSafely();
+            throw e;
+        } catch (Exception e) {
+            rollbackSafely();
+            throw new TransactionException("Transaction failed in approve (host damage)");
+        }
+
     }
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public HostDamageComplaintResponseDTO reject(Long id, User resolver) {
-        var ticket = hostDamageComplaintRepository.findById(id).orElseThrow(() ->
-                new NoSuchElementException("Damage complaint #" + id + " not found"));
-        if (ticket.getStatus() != TicketStatus.PENDING) {
-            throw new TicketAlreadyResolvedException("Damage complaint #" + id + " is already resolved");
+        try {
+            var userTransaction = jtaTransactionManager.getUserTransaction();
+            userTransaction.begin();
+
+            var ticket = hostDamageComplaintRepository.findById(id).orElseThrow(() ->
+                    new NoSuchElementException("Damage complaint #" + id + " not found"));
+            if (ticket.getStatus() != TicketStatus.PENDING) {
+                throw new TicketAlreadyResolvedException("Damage complaint #" + id + " is already resolved");
+            }
+            ticket.setStatus(TicketStatus.REJECTED);
+            ticket.setResolver(resolver);
+            hostDamageComplaintRepository.save(ticket);
+
+            userTransaction.commit();
+
+            log.info("Rejected host damage complaint #{}", ticket.getId());
+            return ModelDTOConverter.convert(ticket);
+        } catch (NoSuchElementException | TicketAlreadyResolvedException e) {
+            rollbackSafely();
+            throw e;
+        } catch (Exception e) {
+            rollbackSafely();
+            throw new TransactionException("Transaction failed in reject (host damage)");
         }
-        ticket.setStatus(TicketStatus.REJECTED);
-        ticket.setResolver(resolver);
-        hostDamageComplaintRepository.save(ticket);
-        log.info("Rejected host damage complaint #{}", ticket.getId());
-        return ModelDTOConverter.convert(ticket);
+    }
+
+    private void rollbackSafely() {
+        try {
+            var userTransaction = jtaTransactionManager.getUserTransaction();
+            userTransaction.rollback();
+        } catch (Exception rollbackEx) {
+            log.error("Rollback failed", rollbackEx);
+        }
     }
 
 }

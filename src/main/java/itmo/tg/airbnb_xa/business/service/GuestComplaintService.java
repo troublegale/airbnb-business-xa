@@ -2,10 +2,7 @@ package itmo.tg.airbnb_xa.business.service;
 
 import itmo.tg.airbnb_xa.business.dto.GuestComplaintRequestDTO;
 import itmo.tg.airbnb_xa.business.dto.GuestComplaintResponseDTO;
-import itmo.tg.airbnb_xa.business.exception.exceptions.BookingAlreadyExpiredException;
-import itmo.tg.airbnb_xa.business.exception.exceptions.NotAllowedException;
-import itmo.tg.airbnb_xa.business.exception.exceptions.TicketAlreadyPublishedException;
-import itmo.tg.airbnb_xa.business.exception.exceptions.TicketAlreadyResolvedException;
+import itmo.tg.airbnb_xa.business.exception.exceptions.*;
 import itmo.tg.airbnb_xa.business.misc.ModelDTOConverter;
 import itmo.tg.airbnb_xa.business.model.main.Booking;
 import itmo.tg.airbnb_xa.business.model.main.GuestComplaint;
@@ -24,6 +21,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.jta.JtaTransactionManager;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -37,7 +35,10 @@ public class GuestComplaintService {
     private final AdvertisementRepository advertisementRepository;
     private final GuestComplaintRepository guestComplaintRepository;
     private final BookingRepository bookingRepository;
+
     private final PenaltyService penaltyService;
+
+    private final JtaTransactionManager jtaTransactionManager;
 
     public GuestComplaintResponseDTO get(Long id) {
         var ticket = guestComplaintRepository.findById(id).orElseThrow(() ->
@@ -90,26 +91,40 @@ public class GuestComplaintService {
         return ModelDTOConverter.toGuestComplaintDTOList(complaints);
     }
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public GuestComplaintResponseDTO create(GuestComplaintRequestDTO dto, User guest) {
-        var bookingId = dto.getBookingId();
-        var booking = bookingRepository.findById(bookingId).orElseThrow(() ->
-                new NoSuchElementException("Booking #" + bookingId + " not found"));
-        if (booking.getStatus() == BookingStatus.EXPIRED) {
-            throw new BookingAlreadyExpiredException("Booking #" + bookingId + " is already expired");
+        try {
+            var userTransaction = jtaTransactionManager.getUserTransaction();
+            userTransaction.begin();
+
+            var bookingId = dto.getBookingId();
+            var booking = bookingRepository.findById(bookingId).orElseThrow(() ->
+                    new NoSuchElementException("Booking #" + bookingId + " not found"));
+            if (booking.getStatus() == BookingStatus.EXPIRED) {
+                throw new BookingAlreadyExpiredException("Booking #" + bookingId + " is already expired");
+            }
+            verifyComplaint(booking, guest);
+            var complaint = GuestComplaint.builder()
+                    .guest(guest)
+                    .advertisement(booking.getAdvertisement())
+                    .booking(booking)
+                    .proofLink(dto.getProofLink())
+                    .date(LocalDate.now())
+                    .status(TicketStatus.PENDING)
+                    .build();
+            guestComplaintRepository.save(complaint);
+
+            userTransaction.commit();
+
+            log.info("Created guest complaint #{}", complaint.getId());
+            return ModelDTOConverter.convert(complaint);
+        } catch (NoSuchElementException | BookingAlreadyExpiredException | TicketAlreadyPublishedException e) {
+            rollbackSafely();
+            throw e;
         }
-        verifyComplaint(booking, guest);
-        var complaint = GuestComplaint.builder()
-                .guest(guest)
-                .advertisement(booking.getAdvertisement())
-                .booking(booking)
-                .proofLink(dto.getProofLink())
-                .date(LocalDate.now())
-                .status(TicketStatus.PENDING)
-                .build();
-        guestComplaintRepository.save(complaint);
-        log.info("Created guest complaint #{}", complaint.getId());
-        return ModelDTOConverter.convert(complaint);
+        catch (Exception e) {
+            rollbackSafely();
+            throw new TransactionException("Transaction failed in create (guest complaint)");
+        }
     }
 
     private void verifyComplaint(Booking booking, User guest) {
@@ -121,39 +136,77 @@ public class GuestComplaintService {
         }
     }
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public GuestComplaintResponseDTO approve(Long id, User resolver) {
-        var ticket = guestComplaintRepository.findById(id).orElseThrow(() ->
-                new NoSuchElementException("Guest complaint #" + id + " not found"));
-        if (ticket.getStatus() != TicketStatus.PENDING) {
-            throw new TicketAlreadyResolvedException("Guest complaint #" + id + " is already resolved");
+        try {
+            var userTransaction = jtaTransactionManager.getUserTransaction();
+            userTransaction.begin();
+
+            var ticket = guestComplaintRepository.findById(id).orElseThrow(() ->
+                    new NoSuchElementException("Guest complaint #" + id + " not found"));
+            if (ticket.getStatus() != TicketStatus.PENDING) {
+                throw new TicketAlreadyResolvedException("Guest complaint #" + id + " is already resolved");
+            }
+            ticket.setStatus(TicketStatus.APPROVED);
+            ticket.setResolver(resolver);
+            guestComplaintRepository.save(ticket);
+            var booking = ticket.getBooking();
+            var advert = booking.getAdvertisement();
+            var assigningDate = ticket.getDate();
+            penaltyService.blockAndAssignFine(advert, ticket.getId(), FineReason.GUEST,
+                    assigningDate, booking.getStartDate(), booking.getEndDate(), advert.getHost());
+            booking.setStatus(BookingStatus.CANCELLED);
+            bookingRepository.save(booking);
+
+            userTransaction.commit();
+
+            log.info("Created guest approved #{}", ticket.getId());
+            return ModelDTOConverter.convert(ticket);
+        } catch (NoSuchElementException | TicketAlreadyResolvedException e) {
+            rollbackSafely();
+            throw e;
         }
-        ticket.setStatus(TicketStatus.APPROVED);
-        ticket.setResolver(resolver);
-        guestComplaintRepository.save(ticket);
-        var booking = ticket.getBooking();
-        var advert = booking.getAdvertisement();
-        var assigningDate = ticket.getDate();
-        penaltyService.blockAndAssignFine(advert, ticket.getId(), FineReason.GUEST,
-                assigningDate, booking.getStartDate(), booking.getEndDate(), advert.getHost());
-        booking.setStatus(BookingStatus.CANCELLED);
-        bookingRepository.save(booking);
-        log.info("Created guest approved #{}", ticket.getId());
-        return ModelDTOConverter.convert(ticket);
+        catch (Exception e) {
+            rollbackSafely();
+            throw new TransactionException("Transaction failed in approve (guest complaint)");
+        }
     }
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public GuestComplaintResponseDTO reject(Long id, User resolver) {
-        var ticket = guestComplaintRepository.findById(id).orElseThrow(() ->
-                new NoSuchElementException("Guest complaint #" + id + " not found"));
-        if (ticket.getStatus() != TicketStatus.PENDING) {
-            throw new TicketAlreadyResolvedException("Guest complaint #" + id + " is already resolved");
+        try {
+            var userTransaction = jtaTransactionManager.getUserTransaction();
+            userTransaction.begin();
+
+            var ticket = guestComplaintRepository.findById(id).orElseThrow(() ->
+                    new NoSuchElementException("Guest complaint #" + id + " not found"));
+            if (ticket.getStatus() != TicketStatus.PENDING) {
+                throw new TicketAlreadyResolvedException("Guest complaint #" + id + " is already resolved");
+            }
+            ticket.setStatus(TicketStatus.REJECTED);
+            ticket.setResolver(resolver);
+            guestComplaintRepository.save(ticket);
+
+            userTransaction.commit();
+
+            log.info("Created guest rejected #{}", ticket.getId());
+            return ModelDTOConverter.convert(ticket);
+        } catch (NoSuchElementException | TicketAlreadyResolvedException e) {
+            rollbackSafely();
+            throw e;
         }
-        ticket.setStatus(TicketStatus.REJECTED);
-        ticket.setResolver(resolver);
-        guestComplaintRepository.save(ticket);
-        log.info("Created guest rejected #{}", ticket.getId());
-        return ModelDTOConverter.convert(ticket);
+        catch (Exception e) {
+            rollbackSafely();
+            throw new TransactionException("Transaction failed in reject (guest complaint)");
+        }
+
+    }
+
+    private void rollbackSafely() {
+        try {
+            var userTransaction = jtaTransactionManager.getUserTransaction();
+            userTransaction.rollback();
+        } catch (Exception rollbackEx) {
+            log.error("Rollback failed", rollbackEx);
+        }
     }
 
 }
