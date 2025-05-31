@@ -14,6 +14,7 @@ import itmo.tg.airbnb_xa.business.repository.main.AdvertisementRepository;
 import itmo.tg.airbnb_xa.business.repository.main.BookingRepository;
 import itmo.tg.airbnb_xa.security.model.Role;
 import itmo.tg.airbnb_xa.security.model.User;
+import jakarta.transaction.UserTransaction;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -33,7 +34,7 @@ public class AdvertisementService {
     private final AdvertisementRepository advertisementRepository;
     private final BookingRepository bookingRepository;
 
-    private final JtaTransactionManager jtaTransactionManager;
+    private final UserTransaction userTransaction;
 
     public AdvertisementResponseDTO get(Long id) {
         var advert = advertisementRepository.findById(id).orElseThrow(() ->
@@ -86,7 +87,6 @@ public class AdvertisementService {
 
     public AdvertisementResponseDTO update(Long id, AdvertisementRequestDTO dto, User host) {
         try {
-            var userTransaction = jtaTransactionManager.getUserTransaction();
             userTransaction.begin();
 
             var advert = advertisementRepository.findById(id).orElseThrow(() ->
@@ -115,7 +115,6 @@ public class AdvertisementService {
 
     private void rollbackSafely() {
         try {
-            var userTransaction = jtaTransactionManager.getUserTransaction();
             userTransaction.rollback();
         } catch (Exception rollbackEx) {
             log.error("Rollback failed", rollbackEx);

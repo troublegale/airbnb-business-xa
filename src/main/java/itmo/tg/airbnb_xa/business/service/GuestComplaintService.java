@@ -13,6 +13,7 @@ import itmo.tg.airbnb_xa.business.repository.main.AdvertisementRepository;
 import itmo.tg.airbnb_xa.business.repository.main.BookingRepository;
 import itmo.tg.airbnb_xa.business.repository.main.GuestComplaintRepository;
 import itmo.tg.airbnb_xa.security.model.User;
+import jakarta.transaction.UserTransaction;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -38,7 +39,7 @@ public class GuestComplaintService {
 
     private final PenaltyService penaltyService;
 
-    private final JtaTransactionManager jtaTransactionManager;
+    private final UserTransaction userTransaction;
 
     public GuestComplaintResponseDTO get(Long id) {
         var ticket = guestComplaintRepository.findById(id).orElseThrow(() ->
@@ -93,7 +94,6 @@ public class GuestComplaintService {
 
     public GuestComplaintResponseDTO create(GuestComplaintRequestDTO dto, User guest) {
         try {
-            var userTransaction = jtaTransactionManager.getUserTransaction();
             userTransaction.begin();
 
             var bookingId = dto.getBookingId();
@@ -138,7 +138,6 @@ public class GuestComplaintService {
 
     public GuestComplaintResponseDTO approve(Long id, User resolver) {
         try {
-            var userTransaction = jtaTransactionManager.getUserTransaction();
             userTransaction.begin();
 
             var ticket = guestComplaintRepository.findById(id).orElseThrow(() ->
@@ -173,7 +172,6 @@ public class GuestComplaintService {
 
     public GuestComplaintResponseDTO reject(Long id, User resolver) {
         try {
-            var userTransaction = jtaTransactionManager.getUserTransaction();
             userTransaction.begin();
 
             var ticket = guestComplaintRepository.findById(id).orElseThrow(() ->
@@ -202,7 +200,6 @@ public class GuestComplaintService {
 
     private void rollbackSafely() {
         try {
-            var userTransaction = jtaTransactionManager.getUserTransaction();
             userTransaction.rollback();
         } catch (Exception rollbackEx) {
             log.error("Rollback failed", rollbackEx);

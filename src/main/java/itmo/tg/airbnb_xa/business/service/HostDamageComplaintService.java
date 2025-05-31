@@ -13,6 +13,7 @@ import itmo.tg.airbnb_xa.business.model.enums.TicketStatus;
 import itmo.tg.airbnb_xa.business.repository.main.BookingRepository;
 import itmo.tg.airbnb_xa.business.repository.main.HostDamageComplaintRepository;
 import itmo.tg.airbnb_xa.security.model.User;
+import jakarta.transaction.UserTransaction;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -36,7 +37,7 @@ public class HostDamageComplaintService {
 
     private final PenaltyService penaltyService;
 
-    private final JtaTransactionManager jtaTransactionManager;
+    private final UserTransaction userTransaction;
 
     public HostDamageComplaintResponseDTO get(Long id) {
         var ticket = hostDamageComplaintRepository.findById(id).orElseThrow(() ->
@@ -74,7 +75,6 @@ public class HostDamageComplaintService {
 
     public HostDamageComplaintResponseDTO create(HostDamageComplaintRequestDTO dto, User host) {
         try {
-            var userTransaction = jtaTransactionManager.getUserTransaction();
             userTransaction.begin();
 
             var bookingId = dto.getBookingId();
@@ -119,7 +119,6 @@ public class HostDamageComplaintService {
             throw new TicketAlreadyResolvedException("Damage complaint #" + id + " is already resolved");
         }
         try {
-            var userTransaction = jtaTransactionManager.getUserTransaction();
             userTransaction.begin();
 
             ticket.setStatus(TicketStatus.APPROVED);
@@ -144,7 +143,6 @@ public class HostDamageComplaintService {
 
     public HostDamageComplaintResponseDTO reject(Long id, User resolver) {
         try {
-            var userTransaction = jtaTransactionManager.getUserTransaction();
             userTransaction.begin();
 
             var ticket = hostDamageComplaintRepository.findById(id).orElseThrow(() ->
@@ -171,7 +169,6 @@ public class HostDamageComplaintService {
 
     private void rollbackSafely() {
         try {
-            var userTransaction = jtaTransactionManager.getUserTransaction();
             userTransaction.rollback();
         } catch (Exception rollbackEx) {
             log.error("Rollback failed", rollbackEx);

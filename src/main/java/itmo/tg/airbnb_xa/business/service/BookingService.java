@@ -12,13 +12,14 @@ import itmo.tg.airbnb_xa.business.repository.main.AdvertisementBlockRepository;
 import itmo.tg.airbnb_xa.business.repository.main.AdvertisementRepository;
 import itmo.tg.airbnb_xa.business.repository.main.BookingRepository;
 import itmo.tg.airbnb_xa.security.model.User;
+import jakarta.transaction.Status;
+import jakarta.transaction.UserTransaction;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.jta.JtaTransactionManager;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -35,7 +36,7 @@ public class BookingService {
 
     private final PenaltyService penaltyService;
 
-    private final JtaTransactionManager jtaTransactionManager;
+    private final UserTransaction userTransaction;
 
     public BookingResponseDTO get(Long id) {
         var booking = bookingRepository.findById(id).orElseThrow(() ->
@@ -67,7 +68,6 @@ public class BookingService {
 
     public BookingResponseDTO create(BookingRequestDTO dto, User guest) {
         try {
-            var userTransaction = jtaTransactionManager.getUserTransaction();
             userTransaction.begin();
 
             verifyDates(dto.getStartDate(), dto.getEndDate());
@@ -121,7 +121,6 @@ public class BookingService {
 
     public String cancel(Long id, User user) {
         try {
-            var userTransaction = jtaTransactionManager.getUserTransaction();
             userTransaction.begin();
 
             var booking = bookingRepository.findById(id).orElseThrow(() ->
@@ -138,6 +137,9 @@ public class BookingService {
             if (booking.getGuest().equals(user)) {
                 booking.setStatus(BookingStatus.CANCELLED);
                 bookingRepository.save(booking);
+
+                userTransaction.commit();
+
                 log.info("Booking #{} cancelled by guest", booking.getId());
                 return "You cancelled booking #" + id + " as a guest";
             }
@@ -159,7 +161,7 @@ public class BookingService {
             throw e;
         } catch (Exception e) {
             rollbackSafely();
-            throw new TransactionException("Transaction failed in cancel (booking)");
+            throw new TransactionException("Transaction failed in cancel (booking) " + e.getClass());
         }
 
     }
@@ -182,10 +184,11 @@ public class BookingService {
 
     private void rollbackSafely() {
         try {
-            var userTransaction = jtaTransactionManager.getUserTransaction();
-            userTransaction.rollback();
-        } catch (Exception rollbackEx) {
-            log.error("Rollback failed", rollbackEx);
+            if (userTransaction.getStatus() == Status.STATUS_ACTIVE) {
+                userTransaction.rollback();
+            }
+        } catch (Exception ex) {
+            throw new RuntimeException("wtf");
         }
     }
 

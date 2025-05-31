@@ -14,6 +14,7 @@ import itmo.tg.airbnb_xa.business.model.enums.TicketStatus;
 import itmo.tg.airbnb_xa.business.repository.main.GuestComplaintRepository;
 import itmo.tg.airbnb_xa.business.repository.main.HostJustificationRepository;
 import itmo.tg.airbnb_xa.security.model.User;
+import jakarta.transaction.UserTransaction;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -37,7 +38,7 @@ public class HostJustificationService {
 
     private final PenaltyService penaltyService;
 
-    private final JtaTransactionManager jtaTransactionManager;
+    private final UserTransaction userTransaction;
 
     public HostJustificationResponseDTO get(Long id) {
         var ticket = hostJustificationRepository.findById(id).orElseThrow(() ->
@@ -75,7 +76,6 @@ public class HostJustificationService {
 
     public HostJustificationResponseDTO create(HostJustificationRequestDTO dto, User host) {
         try {
-            var userTransaction = jtaTransactionManager.getUserTransaction();
             userTransaction.begin();
 
             var complaintId = dto.getGuestComplaintId();
@@ -119,7 +119,6 @@ public class HostJustificationService {
 
     public HostJustificationResponseDTO approve(Long id, User resolver) {
         try {
-            var userTransaction = jtaTransactionManager.getUserTransaction();
             userTransaction.begin();
             var ticket = hostJustificationRepository.findById(id).orElseThrow(() ->
                     new NoSuchElementException("Damage complaint #" + id + " not found"));
@@ -151,7 +150,6 @@ public class HostJustificationService {
     @Transactional(isolation = Isolation.REPEATABLE_READ)
     public HostJustificationResponseDTO reject(Long id, User resolver) {
         try {
-            var userTransaction = jtaTransactionManager.getUserTransaction();
             userTransaction.begin();
 
             var ticket = hostJustificationRepository.findById(id).orElseThrow(() ->
@@ -178,7 +176,6 @@ public class HostJustificationService {
 
     private void rollbackSafely() {
         try {
-            var userTransaction = jtaTransactionManager.getUserTransaction();
             userTransaction.rollback();
         } catch (Exception rollbackEx) {
             log.error("Rollback failed", rollbackEx);

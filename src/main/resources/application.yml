@@ -3,6 +3,8 @@ server:
 spring:
   application:
     name: airbnb-xa
+  jta:
+    enabled: true
   jpa:
     show-sql: true
     hibernate:
