@@ -38,11 +38,7 @@ public class MainDataSourceConfig {
         em.setPackagesToScan("itmo.tg.airbnb_xa.business.model.main", "itmo.tg.airbnb_xa.security.model");
         em.setPersistenceUnitName("mainPU");
 
-        Properties props = new Properties();
-        props.put("hibernate.transaction.jta.platform", "org.hibernate.engine.transaction.jta.platform.internal.JBossAppServerJtaPlatform");
-        props.put("hibernate.transaction.coordinator_class", "jta");
-        props.put("hibernate.dialect", "org.hibernate.dialect.PostgreSQLDialect");
-        props.put("javax.persistence.transactionType", "JTA");
+        Properties props = PropertyProvider.getProperties();
         em.setJpaProperties(props);
 
         return em;

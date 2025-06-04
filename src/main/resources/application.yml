@@ -17,3 +17,6 @@ credentials:
   admin:
     username: admin
     password: administrator
+logging:
+  level:
+    root: info

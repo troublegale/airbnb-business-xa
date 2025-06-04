@@ -36,6 +36,9 @@ public class DefaultAdminLoader {
             userRepository.save(admin);
             log.info("Created default admin");
         }
+        else {
+            log.info("Admin user is present");
+        }
     }
 
 }

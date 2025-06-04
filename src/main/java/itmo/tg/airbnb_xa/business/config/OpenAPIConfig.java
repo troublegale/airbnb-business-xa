@@ -38,7 +38,7 @@ public class OpenAPIConfig {
 
     @EventListener(ApplicationReadyEvent.class)
     public void logInfo() {
-        log.info("Swagger UI available at http://localhost:{}/swagger-ui/index.html", port);
+        log.info("Swagger UI available at http://localhost:8080/airbnb/swagger-ui/index.html");
     }
 
 }
