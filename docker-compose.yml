@@ -1,0 +1,31 @@
+volumes:
+  main-postgres-data:
+  fines-postgres-data:
+
+services:
+
+  main-database:
+    image: postgres:17-alpine
+    ports:
+      - "5665:5665"
+    volumes:
+      - main-postgres-data:/var/lib/postgresql/data
+    environment:
+      - PGPORT=5665
+      - POSTGRES_DB=main
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    container_name: main-db
+
+  fines-database:
+    image: postgres:17-alpine
+    ports:
+      - "5675:5675"
+    volumes:
+      - fines-postgres-data:/var/lib/postgresql/data
+    environment:
+      - PGPORT=5675
+      - POSTGRES_DB=fines
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    container_name: fines-db

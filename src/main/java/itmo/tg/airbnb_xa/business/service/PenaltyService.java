@@ -79,11 +79,11 @@ public class PenaltyService {
         var fine = fineRepository.findByTicketIdAndFineReason(ticketId, fineReason);
         fine.setStatus(FineStatus.CANCELLED);
 
-        try {
-            Thread.sleep(15000);
-        } catch (Exception e) {
-            System.out.println("fuck off");
-        }
+//        try {
+//            Thread.sleep(15000);
+//        } catch (Exception e) {
+//            System.out.println("fuck off");
+//        }
 
         fineRepository.save(fine);
         log.info("Cancelled fine #{}", fine.getId());
