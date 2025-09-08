@@ -28,7 +28,7 @@ public class UserService {
         );
     }
 
-    public Boolean existsByUsername(String email) {
+    public Boolean existsByEmail(String email) {
         return userRepository.existsByEmail(email);
     }
 

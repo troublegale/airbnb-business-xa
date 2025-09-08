@@ -36,7 +36,7 @@ public class AuthenticationService {
     }
 
     public AuthResponse signIn(AuthRequest request) {
-        if (!userService.existsByUsername(request.email())) {
+        if (!userService.existsByEmail(request.email())) {
             throw new UsernameNotFoundException(String.format("User %s not found", request.email()));
         }
         authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(

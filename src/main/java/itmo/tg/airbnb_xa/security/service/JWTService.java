@@ -24,7 +24,7 @@ public class JWTService {
     @Value("${jwt.lifetime}")
     private long lifetime;
 
-    public String extractUsername(String token) {
+    public String extractEmail(String token) {
         return extractClaim(token, Claims::getSubject);
     }
 
@@ -37,8 +37,8 @@ public class JWTService {
     }
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
-        String username = extractUsername(token);
-        return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
+        String email = extractEmail(token);
+        return (email.equals(userDetails.getUsername())) && !isTokenExpired(token);
     }
 
     private String generateToken(Map<String, Object> claims, UserDetails userDetails) {
