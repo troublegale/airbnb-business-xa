@@ -16,8 +16,8 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class DefaultAdminLoader {
 
-    @Value("${credentials.admin.username}")
-    private String adminUsername;
+    @Value("${credentials.admin.email}")
+    private String adminEmail;
 
     @Value("${credentials.admin.password}")
     private String adminPassword;
@@ -27,9 +27,9 @@ public class DefaultAdminLoader {
 
     @EventListener(ApplicationReadyEvent.class)
     public void loadDefaultAdmin() {
-        if (!userRepository.existsByUsername(adminUsername)) {
+        if (!userRepository.existsByEmail(adminEmail)) {
             User admin = User.builder()
-                    .username(adminUsername)
+                    .email(adminEmail)
                     .password(passwordEncoder.encode(adminPassword))
                     .role(Role.ROLE_ADMIN)
                     .build();

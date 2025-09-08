@@ -2,7 +2,7 @@ package itmo.tg.airbnb_xa.security.controller;
 
 import itmo.tg.airbnb_xa.security.dto.AuthRequest;
 import itmo.tg.airbnb_xa.security.dto.AuthResponse;
-import itmo.tg.airbnb_xa.security.exception.UsernameTakenException;
+import itmo.tg.airbnb_xa.security.exception.EmailTakenException;
 import itmo.tg.airbnb_xa.security.service.AuthenticationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -36,9 +36,9 @@ public class AuthenticationController {
         return new ResponseEntity<>("Bad auth request", HttpStatus.BAD_REQUEST);
     }
 
-    @ExceptionHandler(UsernameTakenException.class)
+    @ExceptionHandler(EmailTakenException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
-    public ResponseEntity<String> handleUsernameTakenException(UsernameTakenException e) {
+    public ResponseEntity<String> handleEmailTakenException(EmailTakenException e) {
         return new ResponseEntity<>(e.getMessage(), HttpStatus.CONFLICT);
     }
 

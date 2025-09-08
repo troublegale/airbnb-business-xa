@@ -16,7 +16,7 @@ public class HostDamageComplaintResponseDTO {
 
     private Long id;
 
-    private String hostUsername;
+    private String hostEmail;
 
     private Long bookingId;
 
@@ -26,6 +26,6 @@ public class HostDamageComplaintResponseDTO {
 
     private TicketStatus status;
 
-    private String resolverUsername;
+    private String resolverEmail;
 
 }

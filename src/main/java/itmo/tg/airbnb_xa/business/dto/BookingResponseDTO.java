@@ -18,7 +18,7 @@ public class BookingResponseDTO {
 
     private Long advertisementId;
 
-    private String guestUsername;
+    private String guestEmail;
 
     private LocalDate startDate;
 

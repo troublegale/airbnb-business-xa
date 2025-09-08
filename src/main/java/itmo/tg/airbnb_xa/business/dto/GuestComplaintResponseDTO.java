@@ -18,7 +18,7 @@ public class GuestComplaintResponseDTO {
 
     private Long id;
 
-    private String guestUsername;
+    private String guestEmail;
 
     private Long advertisementId;
 
@@ -30,6 +30,6 @@ public class GuestComplaintResponseDTO {
 
     private TicketStatus status;
 
-    private String resolverUsername;
+    private String resolverEmail;
 
 }

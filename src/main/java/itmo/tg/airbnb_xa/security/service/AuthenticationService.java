@@ -25,28 +25,28 @@ public class AuthenticationService {
 
     public AuthResponse signUp(AuthRequest request) {
         User user = User.builder()
-                .username(request.username())
+                .email(request.email())
                 .password(passwordEncoder.encode(request.password()))
                 .role(Role.ROLE_USER)
                 .build();
         userService.create(user);
         log.info("User #{} registered in the system", user.getId());
         String token = jwtService.generateToken(user);
-        return new AuthResponse(user.getUsername(), token, Role.ROLE_USER);
+        return new AuthResponse(user.getEmail(), token, Role.ROLE_USER);
     }
 
     public AuthResponse signIn(AuthRequest request) {
-        if (!userService.existsByUsername(request.username())) {
-            throw new UsernameNotFoundException(String.format("User %s not found", request.username()));
+        if (!userService.existsByUsername(request.email())) {
+            throw new UsernameNotFoundException(String.format("User %s not found", request.email()));
         }
         authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(
-                request.username(), request.password()
+                request.email(), request.password()
         ));
-        UserDetails userDetails = userService.getUserDetailsService().loadUserByUsername(request.username());
+        UserDetails userDetails = userService.getUserDetailsService().loadUserByUsername(request.email());
         User user = (User) userDetails;
         Role role = user.getRole();
         String token = jwtService.generateToken(userDetails);
-        return new AuthResponse(user.getUsername(), token, role);
+        return new AuthResponse(user.getEmail(), token, role);
     }
 
 }

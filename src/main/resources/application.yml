@@ -15,7 +15,7 @@ jwt:
   lifetime: 1209600000
 credentials:
   admin:
-    username: admin
+    email: gondolierxxx@gmail.com
     password: administrator
 logging:
   level:

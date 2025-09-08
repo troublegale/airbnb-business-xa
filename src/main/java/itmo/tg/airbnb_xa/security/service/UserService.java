@@ -1,6 +1,6 @@
 package itmo.tg.airbnb_xa.security.service;
 
-import itmo.tg.airbnb_xa.security.exception.UsernameTakenException;
+import itmo.tg.airbnb_xa.security.exception.EmailTakenException;
 import itmo.tg.airbnb_xa.security.model.User;
 import itmo.tg.airbnb_xa.security.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,29 +16,29 @@ public class UserService {
     private final UserRepository userRepository;
 
     public void create(User user) {
-        if (userRepository.existsByUsername(user.getUsername())) {
-            throw new UsernameTakenException(String.format("Username %s already taken", user.getUsername()));
+        if (userRepository.existsByEmail(user.getEmail())) {
+            throw new EmailTakenException(String.format("Email %s already taken", user.getEmail()));
         }
         userRepository.save(user);
     }
 
-    public User getByUsername(String username) {
-        return userRepository.findByUsername(username).orElseThrow(
-                () -> new UsernameNotFoundException(String.format("User %s not found", username))
+    public User getByEmail(String email) {
+        return userRepository.findByEmail(email).orElseThrow(
+                () -> new UsernameNotFoundException(String.format("User %s not found", email))
         );
     }
 
-    public Boolean existsByUsername(String username) {
-        return userRepository.existsByUsername(username);
+    public Boolean existsByUsername(String email) {
+        return userRepository.existsByEmail(email);
     }
 
     public User getCurrentUser() {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        return getByUsername(username);
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return getByEmail(email);
     }
 
     public UserDetailsService getUserDetailsService() {
-        return this::getByUsername;
+        return this::getByEmail;
     }
 
 }

@@ -16,7 +16,7 @@ public class HostJustificationResponseDTO {
 
     private Long id;
 
-    private String hostUsername;
+    private String hostEmail;
 
     private Long guestComplaintId;
 
@@ -24,6 +24,6 @@ public class HostJustificationResponseDTO {
 
     private TicketStatus status;
 
-    private String resolverUsername;
+    private String resolverEmail;
 
 }

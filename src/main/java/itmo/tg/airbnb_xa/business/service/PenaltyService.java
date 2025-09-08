@@ -43,7 +43,7 @@ public class PenaltyService {
                 assigningDate, startDate, endDate, advertisement.getBookPrice(), advertisement.getPricePerNight());
 
         var fine = Fine.builder()
-                .username(host.getUsername())
+                .email(host.getEmail())
                 .amount(amount)
                 .status(FineStatus.ACTIVE)
                 .ticketId(ticketId)
@@ -55,7 +55,7 @@ public class PenaltyService {
 
     public void assignFine(Double amount, User user, Long ticketId, FineReason fineReason) {
         var fine = Fine.builder()
-                .username(user.getUsername())
+                .email(user.getEmail())
                 .amount(amount)
                 .status(FineStatus.ACTIVE)
                 .ticketId(ticketId)

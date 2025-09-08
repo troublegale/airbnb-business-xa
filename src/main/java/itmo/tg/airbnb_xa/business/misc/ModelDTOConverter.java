@@ -27,7 +27,7 @@ public class ModelDTOConverter {
                 .bookPrice(advertisement.getBookPrice())
                 .pricePerNight(advertisement.getPricePerNight())
                 .status(advertisement.getStatus())
-                .hostUsername(advertisement.getHost().getUsername())
+                .hostEmail(advertisement.getHost().getEmail())
                 .build();
     }
 
@@ -48,7 +48,7 @@ public class ModelDTOConverter {
         return BookingResponseDTO.builder()
                 .id(booking.getId())
                 .advertisementId(booking.getAdvertisement().getId())
-                .guestUsername(booking.getGuest().getUsername())
+                .guestEmail(booking.getGuest().getEmail())
                 .startDate(booking.getStartDate())
                 .endDate(booking.getEndDate())
                 .status(booking.getStatus())
@@ -64,7 +64,7 @@ public class ModelDTOConverter {
                 .id(fine.getId())
                 .amount(fine.getAmount())
                 .status(fine.getStatus())
-                .username(fine.getUsername())
+                .email(fine.getEmail())
                 .build();
     }
 
@@ -75,13 +75,13 @@ public class ModelDTOConverter {
     public static GuestComplaintResponseDTO convert(GuestComplaint complaint) {
         return GuestComplaintResponseDTO.builder()
                 .id(complaint.getId())
-                .guestUsername(complaint.getGuest().getUsername())
+                .guestEmail(complaint.getGuest().getEmail())
                 .advertisementId(complaint.getAdvertisement().getId())
                 .bookingId(complaint.getBooking().getId())
                 .proofLink(complaint.getProofLink())
                 .date(complaint.getDate())
                 .status(complaint.getStatus())
-                .resolverUsername(complaint.getResolver() == null ? null : complaint.getResolver().getUsername())
+                .resolverEmail(complaint.getResolver() == null ? null : complaint.getResolver().getEmail())
                 .build();
     }
 
@@ -92,12 +92,12 @@ public class ModelDTOConverter {
     public static HostDamageComplaintResponseDTO convert(HostDamageComplaint complaint) {
         return HostDamageComplaintResponseDTO.builder()
                 .id(complaint.getId())
-                .hostUsername(complaint.getHost().getUsername())
+                .hostEmail(complaint.getHost().getEmail())
                 .bookingId(complaint.getBooking().getId())
                 .proofLink(complaint.getProofLink())
                 .compensationAmount(complaint.getCompensationAmount())
                 .status(complaint.getStatus())
-                .resolverUsername(complaint.getResolver() == null ? null : complaint.getResolver().getUsername())
+                .resolverEmail(complaint.getResolver() == null ? null : complaint.getResolver().getEmail())
                 .build();
     }
 
@@ -108,11 +108,11 @@ public class ModelDTOConverter {
     public static HostJustificationResponseDTO convert(HostJustification justification) {
         return HostJustificationResponseDTO.builder()
                 .id(justification.getId())
-                .hostUsername(justification.getHost().getUsername())
+                .hostEmail(justification.getHost().getEmail())
                 .guestComplaintId(justification.getComplaint().getId())
                 .proofLink(justification.getProofLink())
                 .status(justification.getStatus())
-                .resolverUsername(justification.getResolver() == null ? null : justification.getResolver().getUsername())
+                .resolverEmail(justification.getResolver() == null ? null : justification.getResolver().getEmail())
                 .build();
     }
 

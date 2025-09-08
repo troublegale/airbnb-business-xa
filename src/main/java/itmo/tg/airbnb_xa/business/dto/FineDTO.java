@@ -18,6 +18,6 @@ public class FineDTO {
 
     private FineStatus status;
 
-    private String username;
+    private String email;
 
 }

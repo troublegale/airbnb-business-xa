@@ -24,6 +24,6 @@ public class AdvertisementResponseDTO {
 
     private AdvertisementStatus status;
 
-    private String hostUsername;
+    private String hostEmail;
 
 }
