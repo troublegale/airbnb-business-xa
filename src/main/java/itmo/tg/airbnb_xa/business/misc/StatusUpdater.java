@@ -25,7 +25,7 @@ public class StatusUpdater {
     private final BookingRepository bookingRepository;
 
     @Async
-    @Scheduled(fixedRate = 1000 * 60 * 60, initialDelay = 1000 * 60)
+    @Scheduled(fixedRate = 1000 * 60 * 60, initialDelay = 1000 * 10)
     public void statusUpdateScheduled() {
 
         log.info("Scanning for expired blocks & bookings");

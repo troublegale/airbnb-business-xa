@@ -10,6 +10,7 @@ import itmo.tg.airbnb_xa.security.service.UserService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
 import lombok.RequiredArgsConstructor;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -27,6 +28,8 @@ public class HostJustificationController {
     private final HostJustificationService hostJustificationService;
     private final UserService userService;
 
+    private final KafkaTemplate<String, HostJustificationResponseDTO> kafkaTemplate;
+
     @GetMapping("/my")
     @Operation(summary = "Get justifications published by you")
     public List<HostJustificationResponseDTO> getOwned(
@@ -40,7 +43,9 @@ public class HostJustificationController {
     @Operation(summary = "Publish a justification")
     public HostJustificationResponseDTO publish(
             @RequestBody @Valid HostJustificationRequestDTO dto) {
-        return hostJustificationService.create(dto, userService.getCurrentUser());
+        var response = hostJustificationService.create(dto, userService.getCurrentUser());
+        kafkaTemplate.send("host-justifications", response);
+        return response;
     }
 
 }

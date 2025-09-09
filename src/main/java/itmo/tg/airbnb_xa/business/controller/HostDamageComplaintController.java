@@ -10,6 +10,7 @@ import itmo.tg.airbnb_xa.security.service.UserService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
 import lombok.RequiredArgsConstructor;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -27,6 +28,8 @@ public class HostDamageComplaintController {
     private final HostDamageComplaintService hostDamageComplaintService;
     private final UserService userService;
 
+    private final KafkaTemplate<String, HostDamageComplaintResponseDTO> kafkaTemplate;
+
     @GetMapping("/my")
     @Operation(summary = "Get damage complaints published by you")
     public List<HostDamageComplaintResponseDTO> getOwned(
@@ -41,7 +44,9 @@ public class HostDamageComplaintController {
     @Operation(summary = "Publish a damage complaint")
     public HostDamageComplaintResponseDTO publish(
             @RequestBody @Valid HostDamageComplaintRequestDTO dto) {
-        return hostDamageComplaintService.create(dto, userService.getCurrentUser());
+        var response = hostDamageComplaintService.create(dto, userService.getCurrentUser());
+        kafkaTemplate.send("host-damage-complaints", response);
+        return response;
     }
 
 }

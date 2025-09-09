@@ -10,13 +10,21 @@ spring:
     hibernate:
       ddl-auto: update
     open-in-view: false
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
 jwt:
   secret: 87a9c0cec245892d8359c17b6cdfe674823bc66ede0900b1ee33de2c1e2f26b349647497c3a5858f454b63210b2e2cb3f924236537da067d8ba5d2f00240c59d
   lifetime: 1209600000
+
 credentials:
   admin:
     email: gondolierxxx@gmail.com
     password: administrator
+
 logging:
   level:
     root: info

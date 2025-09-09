@@ -14,6 +14,7 @@ import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -31,6 +32,8 @@ public class GuestComplaintController {
     private final GuestComplaintService guestComplaintService;
     private final UserService userService;
 
+    private final KafkaTemplate<String, GuestComplaintResponseDTO> kafkaTemplate;
+
     @GetMapping("/my")
     @Operation(summary = "Get complaints published by you")
     public List<GuestComplaintResponseDTO> getOwned(
@@ -44,7 +47,9 @@ public class GuestComplaintController {
     @Operation(summary = "Publish a complaint")
     public GuestComplaintResponseDTO publish(
             @RequestBody @Valid GuestComplaintRequestDTO guestComplaintRequestDTO) {
-        return guestComplaintService.create(guestComplaintRequestDTO, userService.getCurrentUser());
+        var response = guestComplaintService.create(guestComplaintRequestDTO, userService.getCurrentUser());
+        kafkaTemplate.send("guest-complaints", response);
+        return response;
     }
 
     @ExceptionHandler(BookingAlreadyExpiredException.class)
