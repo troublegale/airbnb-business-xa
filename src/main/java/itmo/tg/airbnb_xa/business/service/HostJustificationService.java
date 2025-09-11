@@ -147,7 +147,6 @@ public class HostJustificationService {
         }
     }
 
-    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public HostJustificationResponseDTO reject(Long id, User resolver) {
         try {
             userTransaction.begin();
@@ -180,6 +179,29 @@ public class HostJustificationService {
         } catch (Exception rollbackEx) {
             log.error("Rollback failed", rollbackEx);
         }
+    }
+
+    public HostJustificationResponseDTO updateViaJira(Long id, TicketStatus status) {
+        try {
+            userTransaction.begin();
+            var ticket = hostJustificationRepository.findById(id).orElseThrow();
+            ticket.setStatus(status);
+            ticket = hostJustificationRepository.save(ticket);
+            if (status == TicketStatus.APPROVED) {
+                var booking = ticket.getComplaint().getBooking();
+                var advert = booking.getAdvertisement();
+                penaltyService.retractPenalty(advert, booking.getEndDate(), ticket.getComplaint().getId(), FineReason.GUEST);
+                log.info("Approved host justification #{}", ticket.getId());
+            } else {
+                log.info("Rejected host justification #{}", ticket.getId());
+            }
+            userTransaction.commit();
+            return ModelDTOConverter.convert(ticket);
+        } catch (Exception e) {
+            rollbackSafely();
+            throw new TransactionException("Transaction failed in reject (host justification)");
+        }
+
     }
 
 }

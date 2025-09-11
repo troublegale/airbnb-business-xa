@@ -1,5 +1,7 @@
 package itmo.tg.airbnb_xa.business.service;
 
+import itmo.tg.airbnb_xa.business.dto.FineDTO;
+import itmo.tg.airbnb_xa.business.misc.ModelDTOConverter;
 import itmo.tg.airbnb_xa.business.model.main.Advertisement;
 import itmo.tg.airbnb_xa.business.model.main.AdvertisementBlock;
 import itmo.tg.airbnb_xa.business.model.fines.Fine;
@@ -12,6 +14,7 @@ import itmo.tg.airbnb_xa.business.repository.fines.FineRepository;
 import itmo.tg.airbnb_xa.security.model.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -25,6 +28,8 @@ public class PenaltyService {
     private final FineRepository fineRepository;
     private final AdvertisementRepository advertisementRepository;
     private final AdvertisementBlockRepository advertisementBlockRepository;
+
+    private final KafkaTemplate<String, FineDTO> kafkaTemplate;
 
     public void blockAndAssignFine(Advertisement advertisement, Long ticketId, FineReason fineReason,
                                    LocalDate assigningDate, LocalDate startDate, LocalDate endDate, User host) {
@@ -49,8 +54,9 @@ public class PenaltyService {
                 .ticketId(ticketId)
                 .fineReason(fineReason)
                 .build();
-        fineRepository.save(fine);
-
+        fine = fineRepository.save(fine);
+        var dto = ModelDTOConverter.convert(fine);
+        kafkaTemplate.send("fines", dto);
     }
 
     public void assignFine(Double amount, User user, Long ticketId, FineReason fineReason) {
@@ -61,8 +67,10 @@ public class PenaltyService {
                 .ticketId(ticketId)
                 .fineReason(fineReason)
                 .build();
-        fineRepository.save(fine);
+        fine = fineRepository.save(fine);
         log.info("User #{} received fine #{}", user.getId(), fine.getId());
+        var dto = ModelDTOConverter.convert(fine);
+        kafkaTemplate.send("fines", dto);
     }
 
     public void retractPenalty(Advertisement advertisement, LocalDate until, Long ticketId, FineReason fineReason) {
@@ -85,8 +93,10 @@ public class PenaltyService {
 //            System.out.println("fuck off");
 //        }
 
-        fineRepository.save(fine);
+        fine = fineRepository.save(fine);
         log.info("Cancelled fine #{}", fine.getId());
+        var dto = ModelDTOConverter.convert(fine);
+        kafkaTemplate.send("fines", dto);
     }
 
     private double calculateFineAmount(

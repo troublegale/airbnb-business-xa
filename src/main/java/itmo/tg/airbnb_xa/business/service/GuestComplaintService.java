@@ -19,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +39,8 @@ public class GuestComplaintService {
     private final BookingRepository bookingRepository;
 
     private final PenaltyService penaltyService;
+
+    private final KafkaTemplate<String, GuestComplaintResponseDTO> kafkaTemplate;
 
     private final UserTransaction userTransaction;
 
@@ -185,7 +188,7 @@ public class GuestComplaintService {
 
             userTransaction.commit();
 
-            log.info("Created guest rejected #{}", ticket.getId());
+            log.info("Guest complaint #{} rejected", ticket.getId());
             return ModelDTOConverter.convert(ticket);
         } catch (NoSuchElementException | TicketAlreadyResolvedException e) {
             rollbackSafely();
@@ -203,6 +206,33 @@ public class GuestComplaintService {
             userTransaction.rollback();
         } catch (Exception rollbackEx) {
             log.error("Rollback failed", rollbackEx);
+        }
+    }
+
+    public GuestComplaintResponseDTO updateViaJira(Long id, TicketStatus ticketStatus) {
+        try {
+            userTransaction.begin();
+            var ticket = guestComplaintRepository.findById(id).orElseThrow();
+            ticket.setStatus(ticketStatus);
+            ticket = guestComplaintRepository.save(ticket);
+            if (ticketStatus == TicketStatus.APPROVED) {
+                var booking = ticket.getBooking();
+                var advert = booking.getAdvertisement();
+                var assigningDate = ticket.getDate();
+                penaltyService.blockAndAssignFine(advert, ticket.getId(), FineReason.GUEST,
+                        assigningDate, booking.getStartDate(), booking.getEndDate(), advert.getHost());
+                booking.setStatus(BookingStatus.CANCELLED);
+                bookingRepository.save(booking);
+                log.info("Guest complaint #{} approved", ticket.getId());
+            } else {
+                log.info("Guest complaint #{} rejected", ticket.getId());
+            }
+            userTransaction.commit();
+            return ModelDTOConverter.convert(ticket);
+        } catch (Exception e) {
+            rollbackSafely();
+            log.error(e.getMessage());
+            throw new TransactionException("Transaction failed in reject (guest complaint)");
         }
     }
 

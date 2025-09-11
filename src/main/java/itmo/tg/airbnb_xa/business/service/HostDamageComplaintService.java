@@ -175,4 +175,25 @@ public class HostDamageComplaintService {
         }
     }
 
+    public HostDamageComplaintResponseDTO updateViaJira(Long id, TicketStatus status) {
+        try {
+            userTransaction.begin();
+            var ticket = hostDamageComplaintRepository.findById(id).orElseThrow();
+            ticket.setStatus(status);
+            ticket = hostDamageComplaintRepository.save(ticket);
+            if (status == TicketStatus.APPROVED) {
+                penaltyService.assignFine(ticket.getCompensationAmount(), ticket.getBooking().getGuest(),
+                        ticket.getId(), FineReason.DAMAGE);
+                log.info("Approved host damage complaint #{}", ticket.getId());
+            } else {
+                log.info("Rejected host damage complaint #{}", ticket.getId());
+            }
+            userTransaction.commit();
+            return ModelDTOConverter.convert(ticket);
+        } catch (Exception e) {
+            rollbackSafely();
+            throw new TransactionException("Transaction failed in reject (host damage)");
+        }
+    }
+
 }

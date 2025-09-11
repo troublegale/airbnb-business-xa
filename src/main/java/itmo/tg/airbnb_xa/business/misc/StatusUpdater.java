@@ -7,14 +7,11 @@ import itmo.tg.airbnb_xa.business.repository.main.AdvertisementRepository;
 import itmo.tg.airbnb_xa.business.repository.main.BookingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 
-@EnableAsync
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -24,7 +21,6 @@ public class StatusUpdater {
     private final AdvertisementBlockRepository advertisementBlockRepository;
     private final BookingRepository bookingRepository;
 
-    @Async
     @Scheduled(fixedRate = 1000 * 60 * 60, initialDelay = 1000 * 10)
     public void statusUpdateScheduled() {
 
