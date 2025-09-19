@@ -79,7 +79,7 @@ public class ModelDTOConverter {
                 .advertisementId(complaint.getAdvertisement().getId())
                 .bookingId(complaint.getBooking().getId())
                 .proofLink(complaint.getProofLink())
-                .date(complaint.getDate())
+                .date(complaint.getDate().toString())
                 .status(complaint.getStatus())
                 .resolverEmail(complaint.getResolver() == null ? null : complaint.getResolver().getEmail())
                 .build();

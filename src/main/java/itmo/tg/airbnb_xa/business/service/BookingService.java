@@ -2,6 +2,7 @@ package itmo.tg.airbnb_xa.business.service;
 
 import itmo.tg.airbnb_xa.business.dto.BookingRequestDTO;
 import itmo.tg.airbnb_xa.business.dto.BookingResponseDTO;
+import itmo.tg.airbnb_xa.business.dto.FineDTO;
 import itmo.tg.airbnb_xa.business.exception.exceptions.*;
 import itmo.tg.airbnb_xa.business.misc.ModelDTOConverter;
 import itmo.tg.airbnb_xa.business.model.main.Booking;
@@ -19,6 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -37,6 +39,8 @@ public class BookingService {
     private final PenaltyService penaltyService;
 
     private final UserTransaction userTransaction;
+
+    private final KafkaTemplate<String, FineDTO> kafkaTemplate;
 
     public BookingResponseDTO get(Long id) {
         var booking = bookingRepository.findById(id).orElseThrow(() ->
@@ -145,13 +149,13 @@ public class BookingService {
             }
 
             var advert = booking.getAdvertisement();
-            penaltyService.blockAndAssignFine(advert, -1L, FineReason.SELF,
+            var dto = penaltyService.blockAndAssignFine(advert, -1L, FineReason.SELF,
                     LocalDate.now(), booking.getStartDate(), booking.getEndDate(), user);
             booking.setStatus(BookingStatus.CANCELLED);
             bookingRepository.save(booking);
 
             userTransaction.commit();
-
+            kafkaTemplate.send("fines", dto);
             log.info("Booking #{} cancelled by host", booking.getId());
             return "You cancelled booking #" + id + " as a host.\n" +
                     "You were assigned with a fine. Refer to /fines/my\n" +

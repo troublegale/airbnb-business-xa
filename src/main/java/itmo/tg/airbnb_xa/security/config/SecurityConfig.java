@@ -35,6 +35,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(request -> request
                         .requestMatchers("/auth/*").permitAll()
                         .requestMatchers("/kafka/*").permitAll()
+                        .requestMatchers("/webhook").permitAll()
                         .requestMatchers("/swagger-ui/**", "/swagger-resources/*", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .requestMatchers("/fines/my").authenticated()

@@ -26,7 +26,7 @@ public class GuestComplaintResponseDTO {
 
     private String proofLink;
 
-    private LocalDate date;
+    private String date;
 
     private TicketStatus status;
 

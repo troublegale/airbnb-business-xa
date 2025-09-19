@@ -31,7 +31,7 @@ public class PenaltyService {
 
     private final KafkaTemplate<String, FineDTO> kafkaTemplate;
 
-    public void blockAndAssignFine(Advertisement advertisement, Long ticketId, FineReason fineReason,
+    public FineDTO blockAndAssignFine(Advertisement advertisement, Long ticketId, FineReason fineReason,
                                    LocalDate assigningDate, LocalDate startDate, LocalDate endDate, User host) {
         var block = AdvertisementBlock.builder()
                 .advertisement(advertisement)
@@ -55,11 +55,10 @@ public class PenaltyService {
                 .fineReason(fineReason)
                 .build();
         fine = fineRepository.save(fine);
-        var dto = ModelDTOConverter.convert(fine);
-        kafkaTemplate.send("fines", dto);
+        return ModelDTOConverter.convert(fine);
     }
 
-    public void assignFine(Double amount, User user, Long ticketId, FineReason fineReason) {
+    public FineDTO assignFine(Double amount, User user, Long ticketId, FineReason fineReason) {
         var fine = Fine.builder()
                 .email(user.getEmail())
                 .amount(amount)
@@ -69,8 +68,7 @@ public class PenaltyService {
                 .build();
         fine = fineRepository.save(fine);
         log.info("User #{} received fine #{}", user.getId(), fine.getId());
-        var dto = ModelDTOConverter.convert(fine);
-        kafkaTemplate.send("fines", dto);
+        return ModelDTOConverter.convert(fine);
     }
 
     public void retractPenalty(Advertisement advertisement, LocalDate until, Long ticketId, FineReason fineReason) {

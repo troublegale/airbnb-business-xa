@@ -1,5 +1,6 @@
 package itmo.tg.airbnb_xa.business.service;
 
+import itmo.tg.airbnb_xa.business.dto.FineDTO;
 import itmo.tg.airbnb_xa.business.dto.GuestComplaintRequestDTO;
 import itmo.tg.airbnb_xa.business.dto.GuestComplaintResponseDTO;
 import itmo.tg.airbnb_xa.business.exception.exceptions.*;
@@ -40,7 +41,7 @@ public class GuestComplaintService {
 
     private final PenaltyService penaltyService;
 
-    private final KafkaTemplate<String, GuestComplaintResponseDTO> kafkaTemplate;
+    private final KafkaTemplate<String, FineDTO> kafkaTemplate;
 
     private final UserTransaction userTransaction;
 
@@ -142,7 +143,6 @@ public class GuestComplaintService {
     public GuestComplaintResponseDTO approve(Long id, User resolver) {
         try {
             userTransaction.begin();
-
             var ticket = guestComplaintRepository.findById(id).orElseThrow(() ->
                     new NoSuchElementException("Guest complaint #" + id + " not found"));
             if (ticket.getStatus() != TicketStatus.PENDING) {
@@ -154,13 +154,13 @@ public class GuestComplaintService {
             var booking = ticket.getBooking();
             var advert = booking.getAdvertisement();
             var assigningDate = ticket.getDate();
-            penaltyService.blockAndAssignFine(advert, ticket.getId(), FineReason.GUEST,
+            var dto = penaltyService.blockAndAssignFine(advert, ticket.getId(), FineReason.GUEST,
                     assigningDate, booking.getStartDate(), booking.getEndDate(), advert.getHost());
             booking.setStatus(BookingStatus.CANCELLED);
             bookingRepository.save(booking);
 
             userTransaction.commit();
-
+            kafkaTemplate.send("fines", dto);
             log.info("Created guest approved #{}", ticket.getId());
             return ModelDTOConverter.convert(ticket);
         } catch (NoSuchElementException | TicketAlreadyResolvedException e) {
@@ -215,11 +215,12 @@ public class GuestComplaintService {
             var ticket = guestComplaintRepository.findById(id).orElseThrow();
             ticket.setStatus(ticketStatus);
             ticket = guestComplaintRepository.save(ticket);
+            FineDTO dto = null;
             if (ticketStatus == TicketStatus.APPROVED) {
                 var booking = ticket.getBooking();
                 var advert = booking.getAdvertisement();
                 var assigningDate = ticket.getDate();
-                penaltyService.blockAndAssignFine(advert, ticket.getId(), FineReason.GUEST,
+                dto = penaltyService.blockAndAssignFine(advert, ticket.getId(), FineReason.GUEST,
                         assigningDate, booking.getStartDate(), booking.getEndDate(), advert.getHost());
                 booking.setStatus(BookingStatus.CANCELLED);
                 bookingRepository.save(booking);
@@ -228,10 +229,13 @@ public class GuestComplaintService {
                 log.info("Guest complaint #{} rejected", ticket.getId());
             }
             userTransaction.commit();
+            if (dto != null) {
+                kafkaTemplate.send("fines", dto);
+            }
             return ModelDTOConverter.convert(ticket);
         } catch (Exception e) {
             rollbackSafely();
-            log.error(e.getMessage());
+            e.printStackTrace();
             throw new TransactionException("Transaction failed in reject (guest complaint)");
         }
     }

@@ -1,5 +1,6 @@
 package itmo.tg.airbnb_xa.business.service;
 
+import itmo.tg.airbnb_xa.business.dto.FineDTO;
 import itmo.tg.airbnb_xa.business.dto.HostDamageComplaintRequestDTO;
 import itmo.tg.airbnb_xa.business.dto.HostDamageComplaintResponseDTO;
 import itmo.tg.airbnb_xa.business.exception.exceptions.TicketAlreadyPublishedException;
@@ -19,6 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +40,8 @@ public class HostDamageComplaintService {
     private final PenaltyService penaltyService;
 
     private final UserTransaction userTransaction;
+
+    private final KafkaTemplate<String, FineDTO> kafkaTemplate;
 
     public HostDamageComplaintResponseDTO get(Long id) {
         var ticket = hostDamageComplaintRepository.findById(id).orElseThrow(() ->
@@ -125,11 +129,11 @@ public class HostDamageComplaintService {
             ticket.setResolver(resolver);
             hostDamageComplaintRepository.save(ticket);
             log.info("Approved host damage complaint #{}", ticket.getId());
-            penaltyService.assignFine(ticket.getCompensationAmount(), ticket.getBooking().getGuest(),
+            var dto = penaltyService.assignFine(ticket.getCompensationAmount(), ticket.getBooking().getGuest(),
                     ticket.getId(), FineReason.DAMAGE);
 
             userTransaction.commit();
-
+            kafkaTemplate.send("fines", dto);
             return ModelDTOConverter.convert(ticket);
         } catch (NoSuchElementException | TicketAlreadyResolvedException e) {
             rollbackSafely();
@@ -181,14 +185,18 @@ public class HostDamageComplaintService {
             var ticket = hostDamageComplaintRepository.findById(id).orElseThrow();
             ticket.setStatus(status);
             ticket = hostDamageComplaintRepository.save(ticket);
+            FineDTO dto = null;
             if (status == TicketStatus.APPROVED) {
-                penaltyService.assignFine(ticket.getCompensationAmount(), ticket.getBooking().getGuest(),
+                dto = penaltyService.assignFine(ticket.getCompensationAmount(), ticket.getBooking().getGuest(),
                         ticket.getId(), FineReason.DAMAGE);
                 log.info("Approved host damage complaint #{}", ticket.getId());
             } else {
                 log.info("Rejected host damage complaint #{}", ticket.getId());
             }
             userTransaction.commit();
+            if (dto != null) {
+                kafkaTemplate.send("fines", dto);
+            }
             return ModelDTOConverter.convert(ticket);
         } catch (Exception e) {
             rollbackSafely();
